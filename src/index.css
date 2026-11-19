@@ -403,3 +403,45 @@ button {
   font-size: 13px;
   margin-top: 12px;
 }
+.extraction-result {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e8ebef;
+  border-radius: 9px;
+}
+
+.extraction-result h3 {
+  color: #16834a;
+  margin-bottom: 10px;
+}
+
+.extraction-result p {
+  color: #77808e;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+.extraction-result h4 {
+  margin-bottom: 12px;
+}
+
+.extraction-result pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 450px;
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #374151;
+  background: white;
+  border: 1px solid #e8ebef;
+  padding: 16px;
+  border-radius: 7px;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

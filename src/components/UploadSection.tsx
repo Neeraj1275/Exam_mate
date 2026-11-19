@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { z } from "zod";
-
+import { uploadPDF } from "../services/uploadService";
 import { Upload, FileText, X } from "lucide-react";
 
 const fileSchema = z
@@ -15,6 +15,7 @@ const fileSchema = z
     (file) => file.size <= 10 * 1024 * 1024,
     "File size must be less than 10 MB",
   );
+
 function UploadSection() {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -22,6 +23,31 @@ function UploadSection() {
 
   const [error, setError] = useState<string | null>(null);
 
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [extractedText, setExtractedText] = useState("");
+
+  const [pageCount, setPageCount] = useState<number | null>(null);
+
+  async function handleUpload() {
+    if (!selectedFile) return;
+
+    try {
+      setIsUploading(true);
+      setError(null);
+      setExtractedText("");
+      setPageCount(null);
+
+      const result = await uploadPDF(selectedFile);
+
+      setExtractedText(result.data?.extractedText ?? "");
+      setPageCount(result.data?.totalPages ?? null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Something went wrong");
+    } finally {
+      setIsUploading(false);
+    }
+  }
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
@@ -74,7 +100,6 @@ function UploadSection() {
             </div>
 
             <h3>Select your PDF paper</h3>
-
             <p>PDF files only · Maximum size 10 MB</p>
 
             <button
@@ -91,7 +116,6 @@ function UploadSection() {
 
             <div className="file-details">
               <strong>{selectedFile.name}</strong>
-
               <span>{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</span>
             </div>
 
@@ -103,6 +127,15 @@ function UploadSection() {
             >
               <X size={19} />
             </button>
+
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleUpload}
+              disabled={isUploading}
+            >
+              {isUploading ? "Processing..." : "Extract Text"}
+            </button>
           </div>
         )}
       </div>
@@ -111,6 +144,15 @@ function UploadSection() {
         <p className="upload-error" role="alert">
           {error}
         </p>
+      )}
+
+      {pageCount !== null && (
+        <div className="extraction-result">
+          <h3>PDF processed successfully!</h3>
+          <p>Total pages: {pageCount}</p>
+          <h4>Extracted text</h4>
+          <pre>{extractedText}</pre>
+        </div>
       )}
     </section>
   );

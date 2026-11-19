@@ -1,16 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
 import Busboy from "busboy";
 import pdfParse from "pdf-parse";
-
 import type { Readable } from "stream";
 
+// Configuration
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Disable Vercel's default body parser.
+// Busboy needs access to the raw request stream.
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// Extract uploaded PDF from multipart/form-data
 function getUploadedFile(req: VercelRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     let uploadedFile: Buffer | null = null;
     let fileError: Error | null = null;
-
     let fileFound = false;
 
     let parser: ReturnType<typeof Busboy>;
@@ -28,7 +36,7 @@ function getUploadedFile(req: VercelRequest): Promise<Buffer> {
       return;
     }
 
-    parser.on("file", (fieldName, file) => {
+    parser.on("file", (fieldName, file, info) => {
       if (fieldName !== "file") {
         file.resume();
         return;
@@ -37,6 +45,11 @@ function getUploadedFile(req: VercelRequest): Promise<Buffer> {
       fileFound = true;
 
       const chunks: Buffer[] = [];
+
+      // Basic MIME type check
+      if (info.mimeType !== "application/pdf") {
+        fileError = new Error("Only PDF files are allowed");
+      }
 
       file.on("data", (chunk: Buffer) => {
         chunks.push(chunk);
@@ -76,7 +89,10 @@ function getUploadedFile(req: VercelRequest): Promise<Buffer> {
     (req as unknown as Readable).pipe(parser);
   });
 }
+
+// Main API handler
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Allow POST requests only
   if (req.method !== "POST") {
     return res.status(405).json({
       success: false,
@@ -84,10 +100,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
+  // Validate request content type
+  const contentType = req.headers["content-type"] || "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return res.status(415).json({
+      success: false,
+      message: "Expected multipart/form-data",
+    });
+  }
+
   try {
     const fileBuffer = await getUploadedFile(req);
 
-    // Basic PDF signature validation
+    // Check PDF file signature
     const signature = fileBuffer.subarray(0, 5).toString();
 
     if (signature !== "%PDF-") {
@@ -97,15 +123,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Extract PDF text
     const pdfData = await pdfParse(fileBuffer);
 
+    // Reject PDFs without readable text
     if (!pdfData.text.trim()) {
       return res.status(422).json({
         success: false,
-        message: "No readable text found in this PDF",
+        message: "No readable text found in this PDF. It may be scanned.",
       });
     }
 
+    // Successful response
     return res.status(200).json({
       success: true,
       message: "PDF processed successfully",
@@ -118,12 +147,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error("PDF upload error:", error);
 
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Something went wrong while processing the PDF";
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Something went wrong while processing the PDF",
+      message,
     });
   }
 }
