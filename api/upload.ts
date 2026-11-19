@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Busboy from "busboy";
-import pdfParse from "pdf-parse";
+
 import type { Readable } from "stream";
 
 // Configuration
@@ -122,7 +122,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         message: "Invalid PDF document",
       });
     }
+    // @ts-expect-error pdf-parse v1 internal module has no TypeScript declaration
+    const pdfParseModule = await import("pdf-parse/lib/pdf-parse.js");
 
+    const pdfParse = pdfParseModule.default;
     // Extract PDF text
     const pdfData = await pdfParse(fileBuffer);
 
